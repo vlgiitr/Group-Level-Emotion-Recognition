@@ -17,6 +17,7 @@ from torchvision import datasets, models, transforms
 import time
 import os
 import copy
+import pickle
 
 import matplotlib.pyplot as plt
 
@@ -32,11 +33,14 @@ from scipy.special import binom
 # IMPORTANT PARAMETERS
 #---------------------------------------------------------------------------
 
-data_dir = '../Dataset/AlignedCroppedImages/'
 device = "cuda" if torch.cuda.is_available() else 'cpu'
+
+data_dir = '../Dataset/AlignedCroppedImages/'
 root_dir = "../Dataset/"
 epochs = 25
 batch_size = 60
+maxFaces = 15
+numClasses = 3
 
 #---------------------------------------------------------------------------
 # SPHEREFACE MODEL FOR ALIGNED MODELS
@@ -194,28 +198,107 @@ class sphere20a(nn.Module):
 # DATASET AND LOADERS
 #---------------------------------------------------------------------------
 
-data_transforms = {
-    'train' : transforms.Compose([
+neg_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Negative/'))
+neu_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Neutral/'))
+pos_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Positive/'))
+
+train_filelist = neg_train + neu_train + pos_train
+
+val_filelist = []
+test_filelist = []
+
+with open('../Dataset/val_list', 'rb') as fp:
+    val_filelist = pickle.load(fp)
+
+with open('../Dataset/test_list', 'rb') as fp:
+    test_filelist = pickle.load(fp)
+
+for i in train_filelist:
+    if i[0] != 'p' and i[0] != 'n':
+        train_filelist.remove(i)
+        
+for i in val_filelist:
+    if i[0] != 'p' and i[0] != 'n':
+        val_filelist.remove(i)
+
+dataset_sizes = [len(train_filelist), len(val_filelist), len(test_filelist)]
+print(dataset_sizes)
+
+train_faces_data_transform = transforms.Compose([
         transforms.Resize((96,112)),
         transforms.ToTensor()
-    ]),
-    'val' : transforms.Compose([
+    ])
+
+val_faces_data_transform = transforms.Compose([
         transforms.Resize((96,112)),
         transforms.ToTensor()
-    ]),
-}
+    ])
 
+class EmotiWDataset(Dataset):
+    
+    def __init__(self, filelist, root_dir, loadTrain=True, transformGlobal=transforms.ToTensor(), transformFaces = transforms.ToTensor()):
+        """
+        Args:
+            filelist: List of names of image/feature files.
+            root_dir: Dataset directory
+            transform (callable, optional): Optional transformer to be applied
+                                            on an image sample.
+        """
+        
+        self.filelist = filelist
+        self.root_dir = root_dir
+        self.transformGlobal = transformGlobal
+        self.transformFaces = transformFaces
+        self.loadTrain = loadTrain
+            
+    def __len__(self):
+        if self.loadTrain:
+            return (len(train_filelist)) 
+        else:
+            return (len(val_filelist))
+    
+    def __getitem__(self, idx):
+        train = ''
+        if self.loadTrain:
+            train = 'train'
+        else:
+            train = 'val'
+        filename = self.filelist[idx].split('.')[0]
+        labeldict = {'neg':'Negative',
+                     'neu':'Neutral',
+                     'pos':'Positive',
+                     'Negative': 0,
+                     'Neutral': 1,
+                     'Positive':2}
 
-image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x])
-                  for x in ['train', 'val']}
+        labelname = labeldict[filename.split('_')[0]]
+        features = np.load(self.root_dir+'FaceFeatures/'+train+'/'+labelname+'/'+filename+'.npz')['a']
+        numberFaces = features.shape[0]            
+        maxNumber = min(numberFaces, maxFaces)
+        
+        features1 = np.zeros((maxFaces, 3, 96, 112), dtype = 'float32')
+        
+        for i in range(maxNumber):
+            face = Image.open(self.root_dir + 'AlignedCroppedImages/'+train+'/'+ labelname + '/' + filename+ '_' + str(i) + '.jpg')
+                
+            if self.transformFaces:
+                face = self.transformFaces(face)
+                
+            features1[i] = face.numpy()
+            
+        features1 = torch.from_numpy(features1)
+        
+        sample = {'features': features1, 'label':labeldict[labelname], 'numberFaces': numberFaces}
+        
+        return sample
 
-dataloaders = {x : torch.utils.data.DataLoader(image_datasets[x], batch_size=batch_size,
-                                              shuffle=True, num_workers = 0)
-               for x in ['train', 'val']}
+train_dataset = EmotiWDataset(train_filelist, root_dir, loadTrain = True, transformFaces = train_faces_data_transform)
 
-dataset_sizes = {x : len(image_datasets[x]) for x in ['train', 'val']}
+train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size, num_workers=0)
 
-class_names = image_datasets['train'].classes
+val_dataset = EmotiWDataset(val_filelist, root_dir, loadTrain=False, transformFaces = val_faces_data_transform)
+
+val_dataloader = DataLoader(val_dataset, shuffle =True, batch_size = batch_size, num_workers = 0)
 
 #---------------------------------------------------------------------------
 # MODEL DEFINITION
@@ -243,46 +326,64 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print('-' * 10)
         
-        for phase in ['train', 'val']:
-            if phase == 'train':
+        for phase in range(2):
+            if phase == 0:
+                dataloaders = train_dataloader
                 scheduler.step()
                 model.train()
             else:
+                dataloaders = val_dataloader
                 model.eval()
-            
+
             running_loss = 0.0
             running_corrects = 0
-            
-            for inputs, labels in dataloaders[phase]:
-                inputs = inputs.to(device)
+
+            for i_batch, sample_batched in enumerate(dataloaders):
+                labels = sample_batched['label']
+                face_features = sample_batched['features']
+                numberFaces = sample_batched['numberFaces']
                 labels = labels.to(device)
-                
+                face_features = face_features.to(device)
+                numberFaces = numberFaces.to(device)
+
                 optimizer.zero_grad()
-                
-                with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs, labels)
+
+                with torch.set_grad_enabled(phase == 0):
+                    face_features = face_features.view(-1, face_features.shape[2], face_features.shape[3], face_features.shape[4])
+                    la = torch.zeros((face_features.shape[0]), dtype = torch.long)
+
+                    for i in range(labels.shape[0]):
+                        for j in range(maxFaces):
+                            la[i*maxFaces + j] = labels[i]
+
+                    labels = la.to(device)
+
+                    for i in range(maxFaces):
+                        outputs = model(face_features, labels)
+
                     _, preds = torch.max(outputs, 1)
                     loss = criterion(outputs, labels)
-                    
-                    if phase == 'train':
+
+                    if phase == 0:
                         loss.backward()
                         optimizer.step()
 
-                running_loss += loss.item() * inputs.size(0)
+                running_loss += loss.item() * labels.size(0)
                 running_corrects += torch.sum(preds == labels.data)
-                
+
             epoch_loss = running_loss / dataset_sizes[phase]
             epoch_acc = running_corrects.double() / dataset_sizes[phase]
-            
+
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc))
-            
-            if phase == 'val' and epoch_acc > best_acc:
+
+            if phase == 1 and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
                 torch.save(model, '../TrainedModels/TrainDataset/AlignedModel_EmotiW_lr01_Softmax')
         
         print()
+        
     time_elapsed = time.time() - since
     print('Training complete in {: .0f}m {:0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
