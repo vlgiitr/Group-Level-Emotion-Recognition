@@ -23,18 +23,19 @@ from torchvision import datasets, models, transforms
 import time
 import os
 import copy
+import pickle
 
 #---------------------------------------------------------------------------
 # IMPORTANT PARAMETERS
 #---------------------------------------------------------------------------
 
 device = "cuda" if torch.cuda.is_available() else 'cpu'
-root_dir = "Dataset/"
+root_dir = "../Dataset/"
 epochs = 8
 batch_size = 32
 maxFaces = 15
 numClasses = 3
-aligned_path = '../TrainedModels/TrainDataset/AlignedModel_EmotiW_lr01_Softmax_br128'
+aligned_path = '../TrainedModels/AlignedModel_EmotiW_lr01_Softmax_br128'
 
 #---------------------------------------------------------------------------
 # SPHEREFACE MODEL FOR ALIGNED MODELS
@@ -211,27 +212,30 @@ class sphere20a(nn.Module):
 # DATASET AND LOADERS
 #---------------------------------------------------------------------------
 
-neg_train = sorted(os.listdir('Dataset/emotiw/train/'+'Negative/'))
-neu_train = sorted(os.listdir('Dataset/emotiw/train/'+'Neutral/'))
-pos_train = sorted(os.listdir('Dataset/emotiw/train/'+'Positive/'))
-
-neg_val = sorted(os.listdir('Dataset/emotiw/val/' + 'Negative/'))
-neu_val = sorted(os.listdir('Dataset/emotiw/val/' + 'Neutral/'))
-pos_val = sorted(os.listdir('Dataset/emotiw/val/' + 'Positive/'))
+neg_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Negative/'))
+neu_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Neutral/'))
+pos_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Positive/'))
 
 train_filelist = neg_train + neu_train + pos_train
-val_filelist = neg_val + neu_val + pos_val
+
+val_filelist = []
+test_filelist = []
+
+with open('../Dataset/val_list', 'rb') as fp:
+    val_filelist = pickle.load(fp)
+
+with open('../Dataset/test_list', 'rb') as fp:
+    test_filelist = pickle.load(fp)
 
 for i in train_filelist:
     if i[0] != 'p' and i[0] != 'n':
         train_filelist.remove(i)
-
+        
 for i in val_filelist:
     if i[0] != 'p' and i[0] != 'n':
         val_filelist.remove(i)
-        
-dataset_sizes = [len(train_filelist), len(val_filelist)]
-data_sizes = [[2756, 3077, 3975], [1231, 1366, 1745]]
+
+dataset_sizes = [len(train_filelist), len(val_filelist), len(test_filelist)]
 print(dataset_sizes)
 
 train_global_data_transform = transforms.Compose([
@@ -413,10 +417,11 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
                     outputs = model(face_features, numberFaces, labels)
                     _, preds = torch.max(outputs, 1)
                     loss = criterion(outputs, labels)
+
                     if phase == 0:
                         loss.backward()
                         optimizer.step()
-
+                        
                 running_loss += loss.item() * labels.size(0)
                 running_corrects += torch.sum(preds == labels.data)
 
@@ -450,4 +455,4 @@ exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=4, gamma=0.1)
 model = train_model(model_ft, criterion, optimizer_ft, 
                       exp_lr_scheduler, num_epochs=epochs)
 
-torch.save(model, './TrainedModels/TrainDataset/AlignedModelTrainerSoftmax_AlignedModel_EmotiW_lr01_Softmax_br128')
+torch.save(model, '../TrainedModels/TrainDataset/AlignedModelTrainerSoftmax_AlignedModel_EmotiW_lr01_Softmax_br128')

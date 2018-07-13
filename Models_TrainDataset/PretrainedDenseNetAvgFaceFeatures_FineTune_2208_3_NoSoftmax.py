@@ -20,6 +20,7 @@ from torchvision import datasets, models, transforms
 import time
 import os
 import copy
+import pickle
 
 import matplotlib.pyplot as plt
 
@@ -28,7 +29,7 @@ import matplotlib.pyplot as plt
 #---------------------------------------------------------------------------
 
 device = "cuda" if torch.cuda.is_available() else 'cpu'
-root_dir = "Dataset/"
+root_dir = "../Dataset/"
 epochs = 16
 batch_size = 32
 maxFaces = 27
@@ -37,27 +38,31 @@ maxFaces = 27
 # DATASET AND LOADERS
 #---------------------------------------------------------------------------
 
-neg_train = sorted(os.listdir('Dataset/emotiw/train/'+'Negative/'))
-neu_train = sorted(os.listdir('Dataset/emotiw/train/'+'Neutral/'))
-pos_train = sorted(os.listdir('Dataset/emotiw/train/'+'Positive/'))
-
-neg_val = sorted(os.listdir('Dataset/emotiw/val/' + 'Negative/'))
-neu_val = sorted(os.listdir('Dataset/emotiw/val/' + 'Neutral/'))
-pos_val = sorted(os.listdir('Dataset/emotiw/val/' + 'Positive/'))
+neg_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Negative/'))
+neu_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Neutral/'))
+pos_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Positive/'))
 
 train_filelist = neg_train + neu_train + pos_train
-val_filelist = neg_val + neu_val + pos_val
-print(len(train_filelist),len(val_filelist))
+
+val_filelist = []
+test_filelist = []
+
+with open('../Dataset/val_list', 'rb') as fp:
+    val_filelist = pickle.load(fp)
+
+with open('../Dataset/test_list', 'rb') as fp:
+    test_filelist = pickle.load(fp)
 
 for i in train_filelist:
     if i[0] != 'p' and i[0] != 'n':
         train_filelist.remove(i)
-
+        
 for i in val_filelist:
     if i[0] != 'p' and i[0] != 'n':
         val_filelist.remove(i)
 
-dataset_sizes = [len(train_filelist), len(val_filelist)]
+dataset_sizes = [len(train_filelist), len(val_filelist), len(test_filelist)]
+print(dataset_sizes)
 
 train_data_transform = transforms.Compose([
         transforms.Resize((224, 224)),
@@ -140,7 +145,7 @@ print('Dataset Loaded')
 # MODEL DEFINITION
 #---------------------------------------------------------------------------
 
-global_model = torch.load('../TrainedModels/TrainedDataset/DenseNet161_EmotiW').module.features
+global_model = torch.load('../TrainedModels/TrainDataset/DenseNet161_EmotiW', map_location=lambda storage, loc: storage).module.features
 
 for param in global_model.parameters():
     param.requires_grad = False
@@ -229,7 +234,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
                 optimizer.zero_grad()
                 
                 with torch.set_grad_enabled(phase == 0):
-                    outputs = model(inputs, face_features, numberFaces, labels)
+                    outputs = model(inputs, face_features, numberFaces)
                     _, preds = torch.max(outputs, 1)
                     loss = criterion(outputs, labels)
                     

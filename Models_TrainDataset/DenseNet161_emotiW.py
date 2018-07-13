@@ -7,54 +7,141 @@ from __future__ import print_function, division
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
 from torch.optim import lr_scheduler
+import torch.nn.functional as F
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms, utils
+from torch.autograd import Variable
+
+from PIL import Image
+
 import numpy as np
 import torchvision
 from torchvision import datasets, models, transforms
 import time
 import os
 import copy
+import pickle
 
 #---------------------------------------------------------------------------
 # IMPORTANT PARAMETERS
 #---------------------------------------------------------------------------
 
-data_dir = './Dataset/emotiw/'
+root_dir = "../Dataset/"
+data_dir = '../Dataset/emotiw/'
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-batch_size=4
+batch_size = 32
 epochs = 25
 
 #---------------------------------------------------------------------------
 # DATASET AND LOADERS
 #---------------------------------------------------------------------------
 
-data_transforms = {
-    'train' : transforms.Compose([
+neg_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Negative/'))
+neu_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Neutral/'))
+pos_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Positive/'))
+
+train_filelist = neg_train + neu_train + pos_train
+
+val_filelist = []
+test_filelist = []
+
+with open('../Dataset/val_list', 'rb') as fp:
+    val_filelist = pickle.load(fp)
+
+with open('../Dataset/test_list', 'rb') as fp:
+    test_filelist = pickle.load(fp)
+
+for i in train_filelist:
+    if i[0] != 'p' and i[0] != 'n':
+        train_filelist.remove(i)
+        
+for i in val_filelist:
+    if i[0] != 'p' and i[0] != 'n':
+        val_filelist.remove(i)
+
+dataset_sizes = [len(train_filelist), len(val_filelist), len(test_filelist)]
+print(dataset_sizes)
+
+train_global_data_transform = transforms.Compose([
         transforms.RandomResizedCrop(224),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ]),
-    'val' : transforms.Compose([
+])
+
+val_global_data_transform = transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ]),
-}
+    ])
 
 
-image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x])
-                  for x in ['train', 'val']}
+class EmotiWDataset(Dataset):
+    
+    def __init__(self, filelist, root_dir, loadTrain=True, transformGlobal=transforms.ToTensor(), transformFaces = transforms.ToTensor()):
+        """
+        Args:
+            filelist: List of names of image/feature files.
+            root_dir: Dataset directory
+            transform (callable, optional): Optional transformer to be applied
+                                            on an image sample.
+        """
+        
+        self.filelist = filelist
+        self.root_dir = root_dir
+        self.transformGlobal = transformGlobal
+        self.transformFaces = transformFaces
+        self.loadTrain = loadTrain
+            
+    def __len__(self):
+        return (len(self.filelist)) 
+ 
+    def __getitem__(self, idx):
 
-dataloaders = {x : torch.utils.data.DataLoader(image_datasets[x], batch_size=batch_size,
-                                              shuffle=True, num_workers = 4)
-               for x in ['train', 'val']}
+        train = ''
+        if self.loadTrain:
+            train = 'train'
+        else:
+            train = 'val'
+        
+        filename = self.filelist[idx].split('.')[0]
+        labeldict = {'neg':'Negative',
+                     'neu':'Neutral',
+                     'pos':'Positive',
+                     'Negative': 0,
+                     'Neutral': 1,
+                     'Positive':2}
 
-dataset_sizes = {x : len(image_datasets[x]) for x in ['train', 'val']}
+        labelname = labeldict[filename.split('_')[0]]
 
-class_names = image_datasets['train'].classes
+        #IMAGE 
+
+        image = Image.open(self.root_dir+'emotiw/'+train+'/'+labelname+'/'+filename+'.jpg')
+        if self.transformGlobal:
+            image = self.transformGlobal(image)
+        if image.shape[0] == 1:
+            image_1 = np.zeros((3, 224, 224), dtype = float)
+            image_1[0] = image
+            image_1[1] = image
+            image_1[2] = image
+            image = image_1
+            image = torch.FloatTensor(image.tolist()) 
+        
+        #SAMPLE
+        sample = {'image': image, 'label':labeldict[labelname]}
+        return sample
+
+
+train_dataset = EmotiWDataset(train_filelist, root_dir, loadTrain = True, transformGlobal=train_global_data_transform)
+
+train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size, num_workers=0)
+
+val_dataset = EmotiWDataset(val_filelist, root_dir, loadTrain=False, transformGlobal= val_global_data_transform)
+val_dataloader = DataLoader(val_dataset, shuffle =True, batch_size = batch_size, num_workers = 0)
+
+print('Dataset Loaded')
 
 #---------------------------------------------------------------------------
 # MODEL DEFINITION
@@ -62,7 +149,6 @@ class_names = image_datasets['train'].classes
 
 model_ft = models.densenet161(pretrained=True)
 num_ftrs = model_ft.classifier.in_features
-print(num_ftrs)
 model_ft.classifier = nn.Linear(num_ftrs, 3)
 
 model_ft = model_ft.to(device)
@@ -82,28 +168,33 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print('-' * 10)
         
-        for phase in ['train', 'val']:
-            if phase == 'train':
+        for phase in range(2):
+            if phase == 0:
+                dataloaders = train_dataloader
                 scheduler.step()
                 model.train()
             else:
+                dataloaders = val_dataloader
                 model.eval()
             
             running_loss = 0.0
             running_corrects = 0
             
-            for inputs, labels in dataloaders[phase]:
+            for i_batch, sample_batched in enumerate(dataloaders):
+                inputs = sample_batched['image']
+                labels = sample_batched['label']
+
                 inputs = inputs.to(device)
                 labels = labels.to(device)
                 
                 optimizer.zero_grad()
                 
-                with torch.set_grad_enabled(phase == 'train'):
+                with torch.set_grad_enabled(phase == 0):
                     outputs = model(inputs)
                     _, preds = torch.max(outputs, 1)
                     loss = criterion(outputs, labels)
                     
-                    if phase == 'train':
+                    if phase == 0:
                         loss.backward()
                         optimizer.step()
                 
@@ -116,9 +207,11 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc))
             
-            if phase == 'val' and epoch_acc > best_acc:
+            if phase == 1 and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
+                torch.save(model_ft, '../TrainedModels/TrainDataset/DenseNet161_EmotiW')
+
         
         print()
     time_elapsed = time.time() - since
