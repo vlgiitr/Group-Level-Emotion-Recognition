@@ -1,3 +1,7 @@
+#----------------------------------------------------------------------------
+# IMPORTING MODULES
+#----------------------------------------------------------------------------
+
 from __future__ import print_function, division
 
 import torch
@@ -20,70 +24,20 @@ import os
 import copy
 from torchvision import transforms, utils
 
-class EmotiC(Dataset):
-    """EmotiC dataset."""
+#---------------------------------------------------------------------------
+# IMPORTANT PARAMETERS
+#---------------------------------------------------------------------------
 
-    def __init__(self, annotations_file, root_dir, transform=None):
-        """
-        Args:
-            csv_file (string): Path to the csv file with annotations.
-            root_dir (string): Directory with all the images.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
-        """
-        self.data = np.load(annotations_file)
-        self.labels = self.data['valence']
-        self.folders = self.data['folder']
-        self.images = self.data['image']
-        self.root_dir = root_dir
-        self.transform = transform
+device = "cuda" if torch.cuda.is_available() else 'cpu'
+root_dir = "./Dataset/emotic/"
+epochs = 15
+batch_size = 32
+maxFaces = 15
+numClasses = 3
 
-    def __len__(self):
-        return len(self.labels)
-
-    def __getitem__(self, idx):
-        img_name = os.path.join(self.root_dir, self.folders[idx], self.images[idx])
-        print(idx)
-        image = Image.open(img_name)
-        image = np.asarray(image)
-        
-        if len(image) == 2:
-            image = image[0]
-            
-        if len(image.shape) == 2:
-            h = image.shape[0]
-            w = image.shape[1]
-            image_1 = np.zeros((h,w,3))
-            for i in range(h):
-                for j in range(w):
-                    image_1[i][j][0] = image[i][j]
-                    image_1[i][j][1] = image[i][j]
-                    image_1[i][j][2] = image[i][j]
-            image = image_1
-        
-        if image.shape[2] == 4:
-            image = image[:,:,0:3]
-            
-        image = image / 255.0
-        image = image.astype('float32')
-
-        label = int(self.labels[idx]) - 1
-
-        if label < 4:
-        	label = 0
-        elif label >=4 and label < 7:
-        	label = 1
-        elif label >= 6 and label < 10:
-        	label = 2
-        
-        sample = {'image': image, 'label': label}
-
-
-        if self.transform:
-            sample = self.transform(sample)
-
-
-        return sample
+#---------------------------------------------------------------------------
+# DATASET AND LOADERS
+#---------------------------------------------------------------------------
 
 class Rescale(object):
     """Rescale the image in a sample to a given size.
@@ -170,9 +124,70 @@ class ToTensor(object):
         # torch image: C X H X W
         image = image.transpose((2, 0, 1))
         label = torch.LongTensor([label])
-#         print(type(label))
         return {'image': torch.FloatTensor(image.tolist()),
                 'label': label}
+
+class EmotiC(Dataset):
+    """EmotiC dataset."""
+
+    def __init__(self, annotations_file, root_dir, transform=None):
+        """
+        Args:
+            csv_file (string): Path to the csv file with annotations.
+            root_dir (string): Directory with all the images.
+            transform (callable, optional): Optional transform to be applied
+                on a sample.
+        """
+        self.data = np.load(root_dir + annotations_file)
+        self.labels = self.data['valence']
+        self.folders = self.data['folder']
+        self.images = self.data['image']
+        self.root_dir = root_dir
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        img_name = os.path.join(self.root_dir, self.folders[idx], self.images[idx])
+        image = Image.open(img_name)
+        image = np.asarray(image)
+        
+        if len(image) == 2:
+            image = image[0]
+            
+        if len(image.shape) == 2:
+            h = image.shape[0]
+            w = image.shape[1]
+            image_1 = np.zeros((h,w,3))
+            for i in range(h):
+                for j in range(w):
+                    image_1[i][j][0] = image[i][j]
+                    image_1[i][j][1] = image[i][j]
+                    image_1[i][j][2] = image[i][j]
+            image = image_1
+        
+        if image.shape[2] == 4:
+            image = image[:,:,0:3]
+            
+        image = image / 255.0
+        image = image.astype('float32')
+
+        label = int(self.labels[idx]) - 1
+
+        if label < 4:
+        	label = 0
+        elif label >=4 and label < 7:
+        	label = 1
+        elif label >= 6 and label < 10:
+        	label = 2
+        
+        sample = {'image': image, 'label': label}
+
+        if self.transform:
+            sample = self.transform(sample)
+
+        return sample
 
 data_transforms = transforms.Compose([
         Rescale(224),
@@ -180,29 +195,46 @@ data_transforms = transforms.Compose([
         ToTensor()
     ])
 
-face_dataset_tr = EmotiC(annotations_file='train_annotations.npz',
-                            root_dir='emotic')
+face_dataset_tr = EmotiC(annotations_file = 'train_annotations.npz',
+                            root_dir = root_dir)
 
-face_dataset_va = EmotiC(annotations_file='val_annotations.npz',
-                            root_dir='emotic')
+face_dataset_va = EmotiC(annotations_file = 'val_annotations.npz',
+                            root_dir = root_dir)
 
-face_dataset_train = EmotiC(annotations_file='train_annotations.npz',
-                            root_dir='emotic', transform = data_transforms)
+face_dataset_train = EmotiC(annotations_file = 'train_annotations.npz',
+                            root_dir = root_dir, transform = data_transforms)
 
-face_dataset_valid = EmotiC(annotations_file='val_annotations.npz',
-                            root_dir='emotic', transform = data_transforms)
+face_dataset_valid = EmotiC(annotations_file = 'val_annotations.npz',
+                            root_dir = root_dir, transform = data_transforms)
 
 
 dataloaders_train = torch.utils.data.DataLoader(face_dataset_train,
-                                             batch_size=32, shuffle=True,
+                                             batch_size=batch_size, shuffle=True,
                                              num_workers=0)
 
 dataloaders_valid = torch.utils.data.DataLoader(face_dataset_valid,
-                                             batch_size=32, shuffle=True,
+                                             batch_size=batch_size, shuffle=True,
                                              num_workers=0)
 
 dataset_sizes = [len(face_dataset_train), len(face_dataset_valid)]
 print(dataset_sizes)
+
+#---------------------------------------------------------------------------
+# MODEL DEFINITION
+#---------------------------------------------------------------------------
+
+model_ft = models.densenet161(pretrained=True)
+num_ftrs = model_ft.classifier.in_features
+model_ft.classifier = nn.Linear(num_ftrs, 3)
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+model_ft = model_ft.to(device)
+model_ft = torch.nn.DataParallel(model_ft)
+
+#---------------------------------------------------------------------------
+# TRAINING
+#---------------------------------------------------------------------------
 
 def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
     
@@ -267,42 +299,6 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
     model.load_state_dict(best_model_wts)
     return model
 
-def visualize_model(model, num_images = 6):
-    was_training = model.training
-    model.eval()
-    images_so_far = 0
-    fig = plt.figure()
-    
-    with torch.no_grad():
-        for i, (inputs, labels) in enumerate(dataloaders['val']):
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-            
-            outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
-            
-            for j in range(inputs.size()[0]):
-                images_so_far += 1
-                ax = plt.subplot(num_images//2, 2, images_so_far)
-                ax.axis('off')
-                ax.set_title("Predicted: {}".format(class_names[preds[j]]))
-                imshow(inputs.cpu().data[j])
-                
-                if images_so_far == num_images:
-                    model.train(mode=was_training)
-                    return
-    model.train(mode=was_training)
-
-model_ft = models.densenet161(pretrained=True)
-num_ftrs = model_ft.classifier.in_features
-model_ft.classifier = nn.Linear(num_ftrs, 3)
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-model_ft = model_ft.to(device)
-
-model_ft = torch.nn.DataParallel(model_ft)
-
 criterion = nn.CrossEntropyLoss()
 
 optimizer_ft = optim.SGD(model_ft.parameters(), lr = 0.001, momentum=0.9)
@@ -310,6 +306,6 @@ optimizer_ft = optim.SGD(model_ft.parameters(), lr = 0.001, momentum=0.9)
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=6, gamma=0.1)
 
 model_ft = train_model(model_ft, criterion, optimizer_ft, 
-                      exp_lr_scheduler, num_epochs=15)
+                      exp_lr_scheduler, num_epochs=epochs)
 
-torch.save(model_ft.state_dict(), "densenet_emotic_lr001.pt")
+torch.save(model_ft.state_dict(), "../TrainedModels/densenet_emotic_lr001.pt")
