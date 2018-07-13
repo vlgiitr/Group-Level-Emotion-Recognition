@@ -1,3 +1,7 @@
+#----------------------------------------------------------------------------
+# IMPORTING MODULES
+#----------------------------------------------------------------------------
+
 from __future__ import print_function, division
 
 import torch
@@ -19,6 +23,21 @@ import time
 import os
 import copy
 from torchvision import transforms, utils
+
+#---------------------------------------------------------------------------
+# IMPORTANT PARAMETERS
+#---------------------------------------------------------------------------
+
+device = "cuda" if torch.cuda.is_available() else 'cpu'
+root_dir = "Dataset/"
+epochs = 15
+batch_size = 32
+maxFaces = 15
+numClasses = 3
+
+#---------------------------------------------------------------------------
+# DATASET AND LOADERS
+#---------------------------------------------------------------------------
 
 class EmotiC(Dataset):
     """EmotiC dataset."""
@@ -170,7 +189,6 @@ class ToTensor(object):
         # torch image: C X H X W
         image = image.transpose((2, 0, 1))
         label = torch.LongTensor([label])
-#         print(type(label))
         return {'image': torch.FloatTensor(image.tolist()),
                 'label': label}
 
@@ -194,15 +212,32 @@ face_dataset_valid = EmotiC(annotations_file='val_annotations.npz',
 
 
 dataloaders_train = torch.utils.data.DataLoader(face_dataset_train,
-                                             batch_size=32, shuffle=True,
+                                             batch_size=batch_size, shuffle=True,
                                              num_workers=0)
 
 dataloaders_valid = torch.utils.data.DataLoader(face_dataset_valid,
-                                             batch_size=32, shuffle=True,
+                                             batch_size=batch_size, shuffle=True,
                                              num_workers=0)
 
 dataset_sizes = [len(face_dataset_train), len(face_dataset_valid)]
 print(dataset_sizes)
+
+#---------------------------------------------------------------------------
+# MODEL DEFINITION
+#---------------------------------------------------------------------------
+
+model_ft = models.densenet161(pretrained=True)
+num_ftrs = model_ft.classifier.in_features
+model_ft.classifier = nn.Linear(num_ftrs, 3)
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+model_ft = model_ft.to(device)
+model_ft = torch.nn.DataParallel(model_ft)
+
+#---------------------------------------------------------------------------
+# TRAINING
+#---------------------------------------------------------------------------
 
 def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
     
@@ -267,42 +302,6 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
     model.load_state_dict(best_model_wts)
     return model
 
-def visualize_model(model, num_images = 6):
-    was_training = model.training
-    model.eval()
-    images_so_far = 0
-    fig = plt.figure()
-    
-    with torch.no_grad():
-        for i, (inputs, labels) in enumerate(dataloaders['val']):
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-            
-            outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
-            
-            for j in range(inputs.size()[0]):
-                images_so_far += 1
-                ax = plt.subplot(num_images//2, 2, images_so_far)
-                ax.axis('off')
-                ax.set_title("Predicted: {}".format(class_names[preds[j]]))
-                imshow(inputs.cpu().data[j])
-                
-                if images_so_far == num_images:
-                    model.train(mode=was_training)
-                    return
-    model.train(mode=was_training)
-
-model_ft = models.densenet161(pretrained=True)
-num_ftrs = model_ft.classifier.in_features
-model_ft.classifier = nn.Linear(num_ftrs, 3)
-
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-model_ft = model_ft.to(device)
-
-model_ft = torch.nn.DataParallel(model_ft)
-
 criterion = nn.CrossEntropyLoss()
 
 optimizer_ft = optim.SGD(model_ft.parameters(), lr = 0.001, momentum=0.9)
@@ -310,6 +309,6 @@ optimizer_ft = optim.SGD(model_ft.parameters(), lr = 0.001, momentum=0.9)
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=6, gamma=0.1)
 
 model_ft = train_model(model_ft, criterion, optimizer_ft, 
-                      exp_lr_scheduler, num_epochs=15)
+                      exp_lr_scheduler, num_epochs=epochs)
 
-torch.save(model_ft.state_dict(), "densenet_emotic_lr001.pt")
+torch.save(model_ft.state_dict(), "../TrainedModels/densenet_emotic_lr001.pt")
