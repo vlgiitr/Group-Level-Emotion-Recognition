@@ -28,7 +28,7 @@ import pickle
 #---------------------------------------------------------------------------
 
 device = "cuda" if torch.cuda.is_available() else 'cpu'
-root_dir = "Dataset/"
+root_dir = "../Dataset/"
 epochs = 1
 batch_size = 8
 maxFaces = 15
@@ -38,19 +38,19 @@ random_seed = 8
 # DATASET AND LOADERS
 #---------------------------------------------------------------------------
 
-neg_train = sorted(os.listdir('Dataset/emotiw/train/'+'Negative/'))
-neu_train = sorted(os.listdir('Dataset/emotiw/train/'+'Neutral/'))
-pos_train = sorted(os.listdir('Dataset/emotiw/train/'+'Positive/'))
+neg_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Negative/'))
+neu_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Neutral/'))
+pos_train = sorted(os.listdir('../Dataset/emotiw/train/'+'Positive/'))
 
 train_filelist = neg_train + neu_train + pos_train
 
 val_filelist = []
 test_filelist = []
 
-with open('Dataset/val_list', 'rb') as fp:
+with open('../Dataset/val_list', 'rb') as fp:
     val_filelist = pickle.load(fp)
 
-with open('Dataset/test_list', 'rb') as fp:
+with open('../Dataset/test_list', 'rb') as fp:
     test_filelist = pickle.load(fp)
 
 for i in train_filelist:
@@ -595,9 +595,7 @@ class FaceAttention(nn.Module):
         attention_scores = F.softmax(attention_scores, dim = -1)
         
         attention_weights = attention_scores
-#         print(attention_scores.shape)
-        # print(attention_scores)
-        
+
         attention_weights = Variable(attention_scores)
         
         for i in range(len(maxNumber)):
@@ -612,7 +610,6 @@ class FaceAttention(nn.Module):
         
         #Concatenating Global and Attended Face Features 
         attended_face_features = attended_face_features.view(batch_size, -1)
-        # global_features = global_features.view(batch_size, -1)
         attended_face_features = self.bn_debug_face(attended_face_features)
         global_features_main = self.bn_debug_global(global_features_main)
         final_features = torch.cat((attended_face_features, global_features_main), dim=1)
@@ -901,14 +898,11 @@ class FaceAttention(nn.Module):
         face_features = torch.zeros((face_features_initial.shape[0],maxFaces,3), dtype = torch.float)
         
         for j in range(face_features_initial.shape[0]):
-#             for i in range(int(maxNumber[j])):
             face = face_features_initial[j]
             tensor = torch.zeros((2,), dtype=torch.long)
             faceLabels = tensor.new_full((maxFaces,), labels[j], dtype = torch.long)
             faceLabels = faceLabels.to(device)
-            # print(face.shape)
-#                 face = face.squeeze(1)
-            # print(face.shape)
+
             if phase == 0:
                 face_features[j, :, :] = self.non_align_model.forward(face, faceLabels)
             else:
@@ -950,8 +944,6 @@ class FaceAttention(nn.Module):
         self.global_model = global_model
         self.non_align_model = non_align_model
         
-#         self.global_fc1 = nn.Linear(2208, 1024)
-
         self.global_fc_main = nn.Linear(2208, 256)
         nn.init.kaiming_normal_(self.global_fc_main.weight)
         self.global_fc_main.bias.data.fill_(0.01)
@@ -990,16 +982,12 @@ class FaceAttention(nn.Module):
         face_features = face_features.to(device)
 
         for j in range(batch_size):
-#             for i in range(int(maxNumber[j])):
             face = face_features_initial[j]
-#                 face = face.squeeze(1)
-            # print(face.shape)
             face_features[j, :, :] = self.non_align_model.forward(face, labels)
         
         face_features = self.non_align_model_dropout(face_features)
 
         face_features = face_features.view(batch_size, 256, -1)
-        # print(maxNumber)
         mask = np.zeros((batch_size,1,maxFaces), dtype = 'float32')
         for j in range(batch_size):
             for i in range(maxFaces - (int(maxNumber[j]))):
@@ -1009,14 +997,11 @@ class FaceAttention(nn.Module):
         attention_scores = torch.bmm(global_features, face_features) #(batch_size, 1, 256) x (batch_size, 256, nFaces) = (batch_size, 1, nFaces)
         attention_scores = attention_scores+mask
         
-        # print(attention_scores)
         
         #Convert Scores to Weight
         attention_scores = F.softmax(attention_scores, dim = -1)
         
         attention_weights = attention_scores
-#         print(attention_scores.shape)
-        # print(attention_scores)
         
         attention_weights = Variable(attention_scores)
         
@@ -1056,7 +1041,6 @@ class FaceAttention(nn.Module):
         self.global_model = global_model
         self.non_align_model = non_align_model
         
-#         self.global_fc1 = nn.Linear(2208, 1024)
         self.global_fc3_debug = nn.Linear(320, 3)
         nn.init.kaiming_normal_(self.global_fc3_debug.weight)
         self.global_fc3_debug.bias.data.fill_(0.01)
@@ -1102,16 +1086,12 @@ class FaceAttention(nn.Module):
         face_features = face_features.to(device)
 
         for j in range(batch_size):
-#             for i in range(int(maxNumber[j])):
             face = face_features_initial[j]
-#                 face = face.squeeze(1)
-            # print(face.shape)
             face_features[j, :, :] = self.non_align_model.forward(face, labels)
         
         face_features = self.non_align_model_dropout(face_features)
 
         face_features = face_features.view(batch_size, 64, -1)
-        # print(maxNumber)
         mask = np.zeros((batch_size,1,maxFaces), dtype = 'float32')
         for j in range(batch_size):
             for i in range(maxFaces - (int(maxNumber[j]))):
@@ -1120,15 +1100,11 @@ class FaceAttention(nn.Module):
         mask = mask.to(device)
         attention_scores = torch.bmm(global_features, face_features) #(batch_size, 1, 256) x (batch_size, 256, nFaces) = (batch_size, 1, nFaces)
         attention_scores = attention_scores+mask
-        
-        # print(attention_scores)
-        
+                
         #Convert Scores to Weight
         attention_scores = F.softmax(attention_scores, dim = -1)
         
         attention_weights = attention_scores
-#         print(attention_scores.shape)
-        # print(attention_scores)
         
         attention_weights = Variable(attention_scores)
         
@@ -1144,7 +1120,6 @@ class FaceAttention(nn.Module):
         
         #Concatenating Global and Attended Face Features 
         attended_face_features = attended_face_features.view(batch_size, -1)
-        # global_features = global_features.view(batch_size, -1)
         attended_face_features = self.bn_debug_face(attended_face_features)
         global_features_main = self.bn_debug_global(global_features_main)
         final_features = torch.cat((attended_face_features, global_features_main), dim=1)
@@ -1268,7 +1243,6 @@ class FaceAttention(nn.Module):
         self.global_model = global_model
         self.non_align_model = non_align_model
         
-#         self.global_fc1 = nn.Linear(2208, 1024)
         self.global_fc3_debug = nn.Linear(512, 3)
         nn.init.kaiming_normal_(self.global_fc3_debug.weight)
         self.global_fc3_debug.bias.data.fill_(0.01)
@@ -1322,27 +1296,19 @@ class FaceAttention(nn.Module):
         mid_face_features = mid_face_features.to(device)
 
         for j in range(batch_size):
-#             for i in range(int(maxNumber[j])):
             face = face_features_initial[j]
-#                 face = face.squeeze(1)
-            # print(face.shape)
             face_features[j, :, :] = self.non_align_model_dropout(self.non_align_model.forward(face, labels))
             face_features_inter[j] = self.attentionfc1_dropout(self.attentionfc1(face_features[j]))
             mid_face_features[j] = self.attentionfc2(face_features_inter[j])
-        
-        # face_features = self.non_align_model_dropout(face_features)
-    
+            
         mid_face_features = mid_face_features.view(batch_size, 1, maxFaces)
 
-        # face_features = face_features.view(batch_size, 64, -1)
-        # print(maxNumber)
         mask = np.zeros((batch_size,1,maxFaces), dtype = 'float32')
         for j in range(batch_size):
             for i in range(maxFaces - (int(maxNumber[j]))):
                 mask[j][0][int(numberFaces[j]) + i] = float('-inf')
         mask = torch.from_numpy(mask)
         mask = mask.to(device)
-#         attention_scores = torch.bmm(global_features, face_features) #(batch_size, 1, 256) x (batch_size, 256, nFaces) = (batch_size, 1, nFaces)
         attention_scores = mid_face_features + mask
         
         #Convert Scores to Weight
@@ -1514,11 +1480,8 @@ def train_model(model, criterion, optimizer=None, scheduler=None, num_epochs = 1
                 face_features_mtcnn= face_features_mtcnn.to(device)
                 face_features_aligned = face_features_aligned.to(device)
                 numberFaces = numberFaces.to(device)
-                
-                # optimizer.zero_grad()
-                
+                                
                 with torch.set_grad_enabled(phase == 0):
-#                     print("forward")
                     outputs, output1, output2, output3, output4, output5, output6, output7, output8, output9, output10, output11, output12, output13, output14 = model(inputs, labels, face_features_mtcnn, face_features_aligned, numberFaces, phase)
                     
                     if phase == 0:
@@ -1574,10 +1537,8 @@ def train_model(model, criterion, optimizer=None, scheduler=None, num_epochs = 1
 
                         label_test.extend(labels.cpu().numpy())
 
-                    print("forward " + str(i_batch))
                     _, preds = torch.max(outputs, 1)
                     loss = criterion(outputs, labels)
-                    #print("loss done")
                 
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
@@ -1650,10 +1611,6 @@ def train_model(model, criterion, optimizer=None, scheduler=None, num_epochs = 1
     return model
 
 criterion = nn.CrossEntropyLoss()
-
-# optimizer_ft = optim.SGD(model_ft.parameters(), lr = 0.01, momentum=0.9)
-
-# exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
 
 model = train_model(model_ft, criterion, None, None, num_epochs=epochs)
 
