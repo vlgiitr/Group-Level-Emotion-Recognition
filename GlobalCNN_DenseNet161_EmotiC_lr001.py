@@ -29,7 +29,7 @@ from torchvision import transforms, utils
 #---------------------------------------------------------------------------
 
 device = "cuda" if torch.cuda.is_available() else 'cpu'
-root_dir = "Dataset/"
+root_dir = "./Dataset/emotic/"
 epochs = 15
 batch_size = 32
 maxFaces = 15
@@ -38,71 +38,6 @@ numClasses = 3
 #---------------------------------------------------------------------------
 # DATASET AND LOADERS
 #---------------------------------------------------------------------------
-
-class EmotiC(Dataset):
-    """EmotiC dataset."""
-
-    def __init__(self, annotations_file, root_dir, transform=None):
-        """
-        Args:
-            csv_file (string): Path to the csv file with annotations.
-            root_dir (string): Directory with all the images.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
-        """
-        self.data = np.load(annotations_file)
-        self.labels = self.data['valence']
-        self.folders = self.data['folder']
-        self.images = self.data['image']
-        self.root_dir = root_dir
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.labels)
-
-    def __getitem__(self, idx):
-        img_name = os.path.join(self.root_dir, self.folders[idx], self.images[idx])
-        print(idx)
-        image = Image.open(img_name)
-        image = np.asarray(image)
-        
-        if len(image) == 2:
-            image = image[0]
-            
-        if len(image.shape) == 2:
-            h = image.shape[0]
-            w = image.shape[1]
-            image_1 = np.zeros((h,w,3))
-            for i in range(h):
-                for j in range(w):
-                    image_1[i][j][0] = image[i][j]
-                    image_1[i][j][1] = image[i][j]
-                    image_1[i][j][2] = image[i][j]
-            image = image_1
-        
-        if image.shape[2] == 4:
-            image = image[:,:,0:3]
-            
-        image = image / 255.0
-        image = image.astype('float32')
-
-        label = int(self.labels[idx]) - 1
-
-        if label < 4:
-        	label = 0
-        elif label >=4 and label < 7:
-        	label = 1
-        elif label >= 6 and label < 10:
-        	label = 2
-        
-        sample = {'image': image, 'label': label}
-
-
-        if self.transform:
-            sample = self.transform(sample)
-
-
-        return sample
 
 class Rescale(object):
     """Rescale the image in a sample to a given size.
@@ -192,23 +127,85 @@ class ToTensor(object):
         return {'image': torch.FloatTensor(image.tolist()),
                 'label': label}
 
+class EmotiC(Dataset):
+    """EmotiC dataset."""
+
+    def __init__(self, annotations_file, root_dir, transform=None):
+        """
+        Args:
+            csv_file (string): Path to the csv file with annotations.
+            root_dir (string): Directory with all the images.
+            transform (callable, optional): Optional transform to be applied
+                on a sample.
+        """
+        self.data = np.load(root_dir + annotations_file)
+        self.labels = self.data['valence']
+        self.folders = self.data['folder']
+        self.images = self.data['image']
+        self.root_dir = root_dir
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        img_name = os.path.join(self.root_dir, self.folders[idx], self.images[idx])
+        image = Image.open(img_name)
+        image = np.asarray(image)
+        
+        if len(image) == 2:
+            image = image[0]
+            
+        if len(image.shape) == 2:
+            h = image.shape[0]
+            w = image.shape[1]
+            image_1 = np.zeros((h,w,3))
+            for i in range(h):
+                for j in range(w):
+                    image_1[i][j][0] = image[i][j]
+                    image_1[i][j][1] = image[i][j]
+                    image_1[i][j][2] = image[i][j]
+            image = image_1
+        
+        if image.shape[2] == 4:
+            image = image[:,:,0:3]
+            
+        image = image / 255.0
+        image = image.astype('float32')
+
+        label = int(self.labels[idx]) - 1
+
+        if label < 4:
+        	label = 0
+        elif label >=4 and label < 7:
+        	label = 1
+        elif label >= 6 and label < 10:
+        	label = 2
+        
+        sample = {'image': image, 'label': label}
+
+        if self.transform:
+            sample = self.transform(sample)
+
+        return sample
+
 data_transforms = transforms.Compose([
         Rescale(224),
         RandomCrop(224),
         ToTensor()
     ])
 
-face_dataset_tr = EmotiC(annotations_file='train_annotations.npz',
-                            root_dir='emotic')
+face_dataset_tr = EmotiC(annotations_file = 'train_annotations.npz',
+                            root_dir = root_dir)
 
-face_dataset_va = EmotiC(annotations_file='val_annotations.npz',
-                            root_dir='emotic')
+face_dataset_va = EmotiC(annotations_file = 'val_annotations.npz',
+                            root_dir = root_dir)
 
-face_dataset_train = EmotiC(annotations_file='train_annotations.npz',
-                            root_dir='emotic', transform = data_transforms)
+face_dataset_train = EmotiC(annotations_file = 'train_annotations.npz',
+                            root_dir = root_dir, transform = data_transforms)
 
-face_dataset_valid = EmotiC(annotations_file='val_annotations.npz',
-                            root_dir='emotic', transform = data_transforms)
+face_dataset_valid = EmotiC(annotations_file = 'val_annotations.npz',
+                            root_dir = root_dir, transform = data_transforms)
 
 
 dataloaders_train = torch.utils.data.DataLoader(face_dataset_train,
