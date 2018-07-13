@@ -393,7 +393,18 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 0):
-                    outputs = model(face_features, labels)
+                    face_features = face_features.view(-1, face_features.shape[2], face_features.shape[3], face_features.shape[4])
+                    la = torch.zeros((face_features.shape[0]), dtype = torch.long)
+
+                    for i in range(labels.shape[0]):
+                        for j in range(maxFaces):
+                            la[i*maxFaces + j] = labels[i]
+
+                    labels = la.to(device)
+
+                    for i in range(maxFaces):
+                        outputs = model(face_features, labels)
+
                     _, preds = torch.max(outputs, 1)
                     loss = criterion(outputs, labels)
 
@@ -413,7 +424,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
             if phase == 1 and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
-                torch.save(model, '../TrainedModels/FullDataset/AlignedModelTrainerLSoftmax_AlignedModel_EmotiW_lr001')
+                torch.save(model, '../TrainedModels/FullDataset/AlignedModel_EmotiW_lr01_Softmax')
         
         print()
         
