@@ -32,9 +32,9 @@ from scipy.special import binom
 # IMPORTANT PARAMETERS
 #---------------------------------------------------------------------------
 
-data_dir = './Dataset/AlignedCroppedImages/'
+data_dir = '../Dataset/AlignedCroppedImages/'
 device = "cuda" if torch.cuda.is_available() else 'cpu'
-root_dir = "Dataset/"
+root_dir = "../Dataset/"
 epochs = 25
 batch_size = 60
 
@@ -210,7 +210,7 @@ image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), data_transf
                   for x in ['train', 'val']}
 
 dataloaders = {x : torch.utils.data.DataLoader(image_datasets[x], batch_size=batch_size,
-                                              shuffle=True, num_workers = 4)
+                                              shuffle=True, num_workers = 0)
                for x in ['train', 'val']}
 
 dataset_sizes = {x : len(image_datasets[x]) for x in ['train', 'val']}
@@ -267,7 +267,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
                     if phase == 'train':
                         loss.backward()
                         optimizer.step()
-                
+
                 running_loss += loss.item() * inputs.size(0)
                 running_corrects += torch.sum(preds == labels.data)
                 
