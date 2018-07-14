@@ -64,7 +64,7 @@ For our best performing model, we use an ensemble of the 14 models defined in th
 You may setup the repository on your local machine by either downloading it or running the following line on `cmd prompt`.
 
 ``` Batchfile
-git clone https://github.com/aarushgupta/Group-Level-Emotion-Recognition.git
+git clone https://github.com/vlgiitr/Group-Level-Emotion-Recognition.git
 ```
 
 Due to the large sizes of `Dataset` and `TrainedModels`, they have been stored on Google Drive.  You may go to the Google Drive links given in the respective folders to download them. 
