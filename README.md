@@ -6,17 +6,17 @@ Short Paper of our challenge submission can be found [here](https://arxiv.org/ab
 
 ## Contents
 
-1. [Summary of the Model](#1-Summary-of-the-Model)
-    i. [Corresponding Code for Models explained in Short Paper](#11-Corresponding-Code-for-Models-explained-in-Short-Paper)
-2. [Setup Instructions and Dependencies](#2-Setup-Instructions-and-Dependencies)
-3. [Repository Overview](#3-Repository-Overview)
-4. [Dataset Folder Overview](#4-Dataset-Folder-Overview)
-5. [Credits](#5-Credits)
-6. [To-do](#6-To-Do)
-7. [Guidelines for Contributors](#7-Guidelines-for-Contributors)
-    i. [Reporting Bugs and Opening Issues](#71-Reporting-Bugs-and-Opening-Issues)
-    ii. [Pull Requests](#72-Pull-Requests)
-8. [License](#8-License)
+1. [Summary of the Model](#1-summary-of-the-model)
+    1. [Corresponding Code for Models explained in Short Paper](#11-corresponding-code-for-models-explained-in-short-paper)
+2. [Setup Instructions and Dependencies](#2-setup-instructions-and-dependencies)
+3. [Repository Overview](#3-repository-overview)
+4. [Dataset Folder Overview](#4-dataset-folder-overview)
+5. [Credits](#5-credits)
+6. [To-do](#6-to-do)
+7. [Guidelines for Contributors](#7-guidelines-for-contributors)
+    1. [Reporting Bugs and Opening Issues](#71-reporting-bugs-and-opening-issues)
+    2. [Pull Requests](#72-pull-requests)
+8. [License](#8-license)
 ## 1. Summary of the Model
 
 We propose an end-to-end model for jointly learning the scene and facial features of an image for group-level emotion recognition. An overview of the approach is presented in the following figure.
@@ -56,14 +56,14 @@ More details of the model and our approach towards the challenge can be found in
 | 11     | Attention_C_EmotiC     | FaceAttention_AlignedModel_FullTrain_4para_lr001_dropout_BN_SoftmaxLr01_EmotiC     |
 
 
->For our best performing model, we use an ensemble of the 14 models defined in the repository.
+For our best performing model, we use an ensemble of the 14 models defined in the repository.
 
 
 ## 2. Setup Instructions and Dependencies
 
 You may setup the repository on your local machine by either downloading it or running the following line on `cmd prompt`.
 
-``` cmd
+``` Batchfile
 git clone https://github.com/aarushgupta/Group-Level-Emotion-Recognition.git
 ```
 
@@ -104,9 +104,9 @@ The repository has the following directories and files:
 
 8. `AlignedFaces_Extractor_Train.ipynb` and `AlignedFaces_Extractor_Test.ipynb` contains code to apply similarity transform to faces extracted from images using MTCNN model.
 
-9. `Calculator_NumberOfFaces` contains code to find the number of faces covering a certain percentage of `emotiw` dataset.
+9. `Calculator_NumberOfFaces.ipynb` contains code to find the number of faces covering a certain percentage of `emotiw` dataset.
 
-10. `GlobalCNN_DenseNet161_EmotiC_lr001` is code for the Global DenseNet-161 model trained on the EmotiC dataset.
+10. `GlobalCNN_DenseNet161_EmotiC_lr001.py` is code for the Global DenseNet-161 model trained on the EmotiC dataset.
 
 ## 4. Dataset Folder Overview
 
@@ -124,7 +124,7 @@ The `Dataset` folder contains the following datasets:
         * **a**:  This contains a list of the faces in the image in rgb array form
         * **b**: This contains landmark coordinates for the corresponding faces.
 
-3. **emotic**: This contains the [EmotiC](https://http://sunai.uoc.edu/emotic/) dataset used for pretraining the models.  
+3. **emotic**: This contains the [EmotiC](http://sunai.uoc.edu/emotic/) dataset used for pretraining the models.  
 
     * Images may be downloaded from [here](http://sunai.uoc.edu/emotic/download.html).
     * `train_annotations.npz` and `val_annotations.npz` contain the following data:
