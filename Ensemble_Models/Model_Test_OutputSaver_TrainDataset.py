@@ -313,7 +313,7 @@ class sphere20a(nn.Module):
 # Pretrained EmotiW DenseNet (DenseNet161_EmotiW)
 #---------------------------------------------------------------------------
 
-global_model = torch.load('../TrainedModels/TrainDataset/DenseNet161_EmotiW', map_location=lambda storage, loc: storage).module
+global_model = torch.load('../TrainedModels/TrainDataset/DenseNet161_EmotiW', map_location=lambda storage, loc: storage)
 model1 = global_model
 print('Pretrained EmotiW DenseNet Loaded! (Model 1)')
 
