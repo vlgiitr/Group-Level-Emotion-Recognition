@@ -1,8 +1,30 @@
+![repository_overview](https://raw.githubusercontent.com/aarushgupta/Group-Level-Emotion-Recognition/master/assets/Repo_Pic.png)
+
 # Group-Level Emotion Recognition
 
 This repository contains the code of our model submitted for the ICMI 2018 EmotiW Group-Level Emotion Recognition Challenge. The model was ranked **4th** in the challenge.
 
-Short Paper of our challenge submission can be found [here](https://arxiv.org/abs/1807.03380).
+Short Paper of our challenge submission can be found [here](https://dl.acm.org/citation.cfm?doid=3242969.3264985).  If you find our research work helpful, please consider citing:
+
+```cite
+@inproceedings{Gupta:2018:AMG:3242969.3264985,
+ author = {Gupta, Aarush and Agrawal, Dakshit and Chauhan, Hardik and Dolz, Jose and Pedersoli, Marco},
+ title = {An Attention Model for Group-Level Emotion Recognition},
+ booktitle = {Proceedings of the 2018 on International Conference on Multimodal Interaction},
+ series = {ICMI `18},
+ year = {2018},
+ isbn = {978-1-4503-5692-3},
+ location = {Boulder, CO, USA},
+ pages = {611--615},
+ numpages = {5},
+ url = {http://doi.acm.org/10.1145/3242969.3264985},
+ doi = {10.1145/3242969.3264985},
+ acmid = {3264985},
+ publisher = {ACM},
+ address = {New York, NY, USA},
+ keywords = {attention mechanisms, convolutional neural networks, deep learning, group-level emotion recognition},
+} 
+```
 
 ## Contents
 
@@ -12,11 +34,11 @@ Short Paper of our challenge submission can be found [here](https://arxiv.org/ab
 3. [Repository Overview](#3-repository-overview)
 4. [Dataset Folder Overview](#4-dataset-folder-overview)
 5. [Credits](#5-credits)
-6. [To-do](#6-to-do)
-7. [Guidelines for Contributors](#7-guidelines-for-contributors)
-    1. [Reporting Bugs and Opening Issues](#71-reporting-bugs-and-opening-issues)
-    2. [Pull Requests](#72-pull-requests)
-8. [License](#8-license)
+6. [Guidelines for Contributors](#6-guidelines-for-contributors)
+    1. [Reporting Bugs and Opening Issues](#61-reporting-bugs-and-opening-issues)
+    2. [Pull Requests](#62-pull-requests)
+7. [License](#7-license)
+
 ## 1. Summary of the Model
 
 We propose an end-to-end model for jointly learning the scene and facial features of an image for group-level emotion recognition. An overview of the approach is presented in the following figure.
@@ -173,14 +195,9 @@ ISSN={},
 month={May},}
 ```
 
-## 6. To-Do
+## 6. Guidelines for Contributors
 
-1. [ ] Upload trained models of `TrainedModels/FullDataset/AlignedModel_EmotiW_lr01_Softmax` and `TrainedModels/FullDataset/PretrainedDenseNetAvgFaceFeatures_FineTune_2208_3_NoSoftmax`.
-2. [ ] Review implementations of `Ensemble_Models/Model_OutputSaver_FullTrained` and `Ensemble_Models/Model_OutputSaver_TrainDataset`.
-
-## 7. Guidelines for Contributors
-
-### 7.1. Reporting Bugs and Opening Issues
+### 6.1. Reporting Bugs and Opening Issues
 
 If you'd like to report a bug or open an issue then please:
 
@@ -188,13 +205,13 @@ If you'd like to report a bug or open an issue then please:
 
 When submitting an issue please describe the issue as clearly as possible, including how to reproduce the bug. If you can include a screenshot of the issues, that would be helpful.
 
-### 7.2. Pull Requests
+### 6.2. Pull Requests
 
 Please first discuss the change you wish to make via an issue.
 
 We don't have a set format for Pull Requests, but expect you to list changes, bugs generated and other relevant things in the PR message.
 
-## 8. License
+## 7. License
 
 This repository is licensed under MIT license.
 
