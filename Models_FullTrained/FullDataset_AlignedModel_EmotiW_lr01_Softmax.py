@@ -37,7 +37,7 @@ import pickle
 data_dir = '../Dataset/AlignedCroppedImages/'
 device = "cuda" if torch.cuda.is_available() else 'cpu'
 root_dir = "../Dataset/"
-epochs = 25
+epochs = 9
 maxFaces = 15
 numClasses = 3
 batch_size = 60
@@ -381,6 +381,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
 
             running_loss = 0.0
             running_corrects = 0
+            numberExamples = 0
 
             for i_batch, sample_batched in enumerate(dataloaders):
                 labels = sample_batched['label']
@@ -390,20 +391,38 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
                 face_features = face_features.to(device)
                 numberFaces = numberFaces.to(device)
 
+                maxNumber = np.minimum(numberFaces, maxFaces).float()
+                maxNumber = maxNumber.to(device)
+
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 0):
-                    face_features = face_features.view(-1, face_features.shape[2], face_features.shape[3], face_features.shape[4])
-                    la = torch.zeros((face_features.shape[0]), dtype = torch.long)
+                    la = torch.zeros((int(torch.sum(maxNumber))), dtype = torch.long)
+
+                    sum_faces = 0
 
                     for i in range(labels.shape[0]):
-                        for j in range(maxFaces):
-                            la[i*maxFaces + j] = labels[i]
 
-                    labels = la.to(device)
+                        for j in range(int(maxNumber[i])):
+                            la[sum_faces + j] = labels[i]
 
-                    for i in range(maxFaces):
-                        outputs = model(face_features, labels)
+                        sum_faces = sum_faces + int(maxNumber[i])
+
+                    labels = la
+                    labels = labels.to(device)
+
+                    face_features_1 = torch.zeros((int(torch.sum(maxNumber)), face_features.shape[2], face_features.shape[3], face_features.shape[4]), dtype=torch.float32)
+
+                    sum_faces_1 = 0
+                    
+                    for i in range(face_features.shape[0]):
+                        for j in range(int(maxNumber[i])):
+                            face_features_1[sum_faces_1 + j] = face_features[i][j]
+                        sum_faces_1 = sum_faces_1 + int(maxNumber[i])
+
+                    face_features = face_features_1.to(device)
+
+                    outputs = model(face_features, labels)
 
                     _, preds = torch.max(outputs, 1)
                     loss = criterion(outputs, labels)
@@ -414,9 +433,10 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
 
                 running_loss += loss.item() * labels.size(0)
                 running_corrects += torch.sum(preds == labels.data)
+                numberExamples += labels.size(0)
 
-            epoch_loss = running_loss / dataset_sizes[phase]
-            epoch_acc = running_corrects.double() / dataset_sizes[phase]
+            epoch_loss = running_loss / numberExamples
+            epoch_acc = running_corrects.double() / numberExamples
 
             print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                 phase, epoch_loss, epoch_acc))
@@ -437,6 +457,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs = 25):
     return model
 
 criterion = nn.CrossEntropyLoss()
+
 
 optimizer_ft = optim.SGD(model_ft.parameters(), lr = 0.01, momentum=0.9)
 
